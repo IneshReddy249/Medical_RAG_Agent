@@ -17,6 +17,8 @@ It combines document retrieval, reranking, and large-language-model reasoning us
 🚀 FastAPI Backend: Exposes REST endpoints for ingestion and querying
 
 ☁️ Scalable Deployment: Dockerized and compatible with AWS ECS, RDS, S3, and CloudWatch for production use
+
+
 ⚙️ System Architecture
 
 
