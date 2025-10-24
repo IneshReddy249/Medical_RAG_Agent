@@ -1,0 +1,31 @@
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# === Environments ===
+venv/
+.venv/
+env/
+ENV/
+
+# === Config / Secrets ===
+.env
+
+# === Data / Models / Embeddings ===
+chroma_db/
+data/uploads/
+embeddings/
+*.pdf
+*.csv
+*.db
+
+# === Logs ===
+*.log
+
+# === OS / IDE ===
+.DS_Store
+.vscode/
+.idea/
