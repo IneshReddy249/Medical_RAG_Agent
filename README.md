@@ -6,12 +6,12 @@ It combines document retrieval, reranking, and large-language-model reasoning us
 
 🧩 Key Features
 
-✅ Parse and embed medical PDFs with LlamaParse + BGE embeddings
-✅ Store document vectors in ChromaDB (persistent local DB)
-✅ Retrieve and rerank relevant context using Llama-Rank-v1
-✅ Generate fact-grounded answers using Meta-Llama-3.1-70B-Instruct-Turbo
-✅ Deploy through FastAPI, with endpoints for ingestion, retrieval, and generation
-✅ Scalable and ready for Docker + AWS ECS/RDS + CloudWatch monitoring
+1.Parse and embed medical PDFs with LlamaParse + BGE embeddings
+2. Store document vectors in ChromaDB (persistent local DB)
+3. Retrieve and rerank relevant context using Llama-Rank-v1
+4. Generate fact-grounded answers using Meta-Llama-3.1-70B-Instruct-Turbo
+5. Deploy through FastAPI, with endpoints for ingestion, retrieval, and generation
+6. Scalable and ready for Docker + AWS ECS/RDS + CloudWatch monitoring
 
 ⚙️ System Architecture
 
@@ -39,12 +39,12 @@ Backend/
 
 🧠 RAG Flow
 
-Ingest Documents — Parse PDFs using LlamaParse
-Chunk + Embed — Generate vector embeddings (BGE model)
-Store — Save embeddings to ChromaDB
-Retrieve — Fetch top-k relevant context chunks
-Rerank — Optimize order with Llama-Rank-v1
-Generate — Produce medically-accurate answer with Together API (Llama-3.1-70B)
+1.Ingest Documents — Parse PDFs using LlamaParse
+2.Chunk + Embed — Generate vector embeddings (BGE model)
+3.Store — Save embeddings to ChromaDB
+4.Retrieve — Fetch top-k relevant context chunks
+5.Rerank — Optimize order with Llama-Rank-v1
+6.Generate — Produce medically-accurate answer with Together API (Llama-3.1-70B)
 
 
 | Layer          | Technology                                |
