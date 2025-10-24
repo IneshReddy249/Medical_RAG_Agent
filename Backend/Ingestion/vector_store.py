@@ -1,48 +1,69 @@
-import os, logging, hashlib
+from __future__ import annotations
+import os, hashlib, logging
 from typing import List
 import chromadb
 from chromadb.config import Settings
 from llama_index.core.schema import TextNode
 
-def _norm(t: str) -> str: return " ".join((t or "").split())
-def _cid(text: str) -> str: return hashlib.sha1(_norm(text).encode()).hexdigest()
-def _too_small(t: str) -> bool: return (len(t) < 200) and (len(t.split()) < 30)
+
+def _norm(text: str) -> str:
+    """Normalize whitespace."""
+    return " ".join((text or "").split())
+
+
+def _cid(text: str) -> str:
+    """Content hash for deduplication."""
+    return hashlib.sha1(_norm(text).encode()).hexdigest()
+
+
+def _skip(text: str) -> bool:
+    """Ignore trivial or short text segments."""
+    return len(text) < 160 and len(text.split()) < 25
+
 
 class MedicalChromaStore:
-    def __init__(self, collection_name="medical_rag", persist_path="./chroma_db"):
-        os.makedirs(persist_path, exist_ok=True)
-        self.client = chromadb.PersistentClient(path=persist_path, settings=Settings(anonymized_telemetry=False))
-        self.collection = self.client.get_or_create_collection(name=collection_name, metadata={"hnsw:space": "cosine"})
-        logging.info(f"🩺 ChromaDB Medical Store: {collection_name} at {persist_path}")
+    """Handles storage and deduplication of embeddings in ChromaDB."""
 
-    def _exists(self, cid: str, source: str) -> bool:
-        try:
-            res = self.collection.get(where={"cid": cid, "source": source}, include=["ids"], limit=1)
-            return bool(res and res.get("ids"))
-        except Exception:
-            return False
+    def __init__(self, collection: str = "medical_rag", path: str = "./chroma_db"):
+        os.makedirs(path, exist_ok=True)
+        client = chromadb.PersistentClient(path=path, settings=Settings(anonymized_telemetry=False))
+        self.col = client.get_or_create_collection(name=collection, metadata={"hnsw:space": "cosine"})
+        logging.info(f"🩺 ChromaDB ready: {collection} @ {path}")
 
-    def store_nodes(self, nodes: List[TextNode], batch_size: int = 100) -> int:
-        if not nodes: return 0
-        recs = []
+    def store_nodes(self, nodes: List[TextNode], batch: int = 100) -> int:
+        """Store unique nodes with embeddings into ChromaDB."""
+        if not nodes:
+            return 0
+
+        records, seen = [], set()
         for n in nodes:
-            if not getattr(n, "embedding", None): continue
-            text = _norm(n.text)
-            if _too_small(text): continue
-            meta = dict(n.metadata or {})
-            src  = meta.setdefault("source", meta.get("source", "unknown"))
-            cid  = _cid(text); meta["cid"] = cid
-            _id  = f"{src}::{cid}"
-            if not self._exists(cid, src):
-                recs.append((_id, n.embedding, text, meta))
-        if not recs:
-            logging.info("✓ Nothing new to store"); return 0
+            emb, text = getattr(n, "embedding", None), _norm(getattr(n, "text", "") or "")
+            if not emb or not text or _skip(text):
+                continue
+
+            cid = _cid(text)
+            _id = f"{n.metadata.get('source', 'unknown')}::{cid}"
+            if _id in seen:
+                continue
+            seen.add(_id)
+            meta = {**(n.metadata or {}), "cid": cid}
+            records.append((_id, emb, text, meta))
+
+        if not records:
+            logging.info("No new nodes to upsert.")
+            return 0
 
         stored = 0
-        for i in range(0, len(recs), batch_size):
-            b = recs[i:i+batch_size]; ids, embs, docs, metas = zip(*b)
-            self.collection.upsert(ids=list(ids), embeddings=list(embs), documents=list(docs), metadatas=list(metas))
-            stored += len(b)
-            logging.info(f"✓ Stored batch {i//batch_size+1}/{(len(recs)-1)//batch_size+1}: {len(b)}")
-        logging.info(f"✅ Stored {stored} new embeddings; 📊 Total: {self.collection.count()}")
+        for i in range(0, len(records), batch):
+            ids, embs, docs, metas = zip(*{r[0]: r for r in records[i:i+batch]}.values())
+            self.col.upsert(
+                ids=list(ids),
+                embeddings=list(embs),
+                documents=list(docs),
+                metadatas=list(metas),
+            )
+            stored += len(ids)
+            logging.info(f"Stored batch {i//batch + 1}: {len(ids)} items")
+
+        logging.info(f"✅ Total stored: {stored} | Collection size: {self.col.count()}")
         return stored

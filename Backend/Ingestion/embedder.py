@@ -1,49 +1,51 @@
-# Backend/Ingestion/embedder.py
+from __future__ import annotations
 import os, time, logging
+from typing import List
 from together import Together
 from transformers import AutoTokenizer
 from llama_index.core.schema import TextNode
-from typing import List
+
 
 class MedicalEmbedder:
-    """Simple and safe medical embedder using Together API"""
+    """Generate embeddings for text nodes using Together API."""
 
-    def __init__(self, model_name="BAAI/bge-large-en-v1.5", batch_size=50):
-        key = os.getenv("TOGETHER_API_KEY")
+    def __init__(self, model_name: str | None = None, batch_size: int = 48):
+        key = os.getenv("TOGETHER_API_KEY", "").strip()
         if not key:
-            raise EnvironmentError("Set TOGETHER_API_KEY in environment")
+            raise EnvironmentError("Missing TOGETHER_API_KEY")
+
         self.client = Together(api_key=key)
-        self.model = model_name
-        self.bs = min(max(batch_size, 1), 128)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = model_name or os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-en-v1.5")
+        self.batch_size = min(max(batch_size, 1), 128)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model)
 
-    def _truncate(self, text: str, max_tokens=440) -> str:
-        tokens = self.tokenizer.tokenize(text)
-        return text if len(tokens) <= max_tokens else self.tokenizer.convert_tokens_to_string(tokens[:max_tokens])
+    def _truncate(self, text: str, max_tokens: int = 448) -> str:
+        """Trim long texts to fit model token limits."""
+        tokens = self.tokenizer.tokenize(text or "")
+        if len(tokens) <= max_tokens:
+            return text
+        return self.tokenizer.convert_tokens_to_string(tokens[:max_tokens])
 
-    def _normalize(self, v: List[float]) -> List[float]:
-        n = (sum(x*x for x in v) ** 0.5) or 1.0
-        return [x / n for x in v]
-
-    def _embed_batch(self, texts: List[str], retries=3) -> List[List[float]]:
-        for attempt in range(retries + 1):
-            try:
-                resp = self.client.embeddings.create(model=self.model, input=texts)
-                return [self._normalize(d.embedding) for d in resp.data]
-            except Exception as e:
-                if attempt == retries:
-                    raise
-                wait = 2 ** attempt
-                logging.warning(f"Retry {attempt+1} in {wait}s: {e}")
-                time.sleep(wait)
+    def _embed_batch(self, texts: List[str]) -> List[List[float]]:
+        resp = self.client.embeddings.create(model=self.model, input=texts)
+        return [d.embedding for d in resp.data]
 
     def embed_nodes(self, nodes: List[TextNode]) -> List[TextNode]:
-        if not nodes: return []
-        for n in nodes: n.text = self._truncate(n.text or "")
-        for i in range(0, len(nodes), self.bs):
-            batch = nodes[i:i+self.bs]
-            vecs = self._embed_batch([n.text for n in batch])
-            for n, v in zip(batch, vecs): n.embedding = v
-            time.sleep(0.3)
-        logging.info(f"✅ Embedded {len(nodes)} nodes with {self.model}")
+        """Embed nodes in batches and attach vector embeddings."""
+        if not nodes:
+            return []
+
+        # Pre-truncate all texts
+        for n in nodes:
+            n.text = self._truncate(n.text or "")
+
+        # Batch embed and assign vectors
+        for i in range(0, len(nodes), self.batch_size):
+            batch = nodes[i:i + self.batch_size]
+            embeddings = self._embed_batch([n.text for n in batch])
+            for n, e in zip(batch, embeddings):
+                n.embedding = e
+            time.sleep(0.1)  # avoid rate limits
+
+        logging.info(f"✅ Embedded {len(nodes)} nodes using {self.model}")
         return nodes
