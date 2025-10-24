@@ -19,26 +19,7 @@ It combines document retrieval, reranking, and large-language-model reasoning us
 ☁️ Scalable Deployment: Dockerized and compatible with AWS ECS, RDS, S3, and CloudWatch for production use
 ⚙️ System Architecture
 
-Backend/
-├── Ingestion/
-│   ├── document_parser.py     # LlamaParse PDF parser
-│   ├── embedder.py            # Embeddings generator (BGE)
-│   ├── vector_store.py        # Vector storage using ChromaDB
-│
-├── retrieval/
-│   ├── retriever.py           # Context search + reranking
-│
-├── generator/
-│   ├── generator.py           # LLM-based context-grounded answer generator
-│
-├── main.py                    # FastAPI entry point (API endpoints)
-│
-├── data/                      # Medical PDFs and extracted data
-│   ├── Full.pdf
-│   ├── uploads/
-│
-├── requirements.txt
-└── README.md
+
 
 
 | Step            | Description                                        | Tools Used                                         |
@@ -51,13 +32,4 @@ Backend/
 | **6. Generate** | Create source-grounded answers via LLM             | `Meta-Llama-3.1-70B-Instruct-Turbo` (Together API) |
 
 
-| Layer          | Technology                                |
-| :------------- | :---------------------------------------- |
-| **LLM**        | Meta-Llama-3.1-70B-Instruct-Turbo         |
-| **Embeddings** | BAAI/bge-large-en-v1.5                    |
-| **Reranker**   | Salesforce/Llama-Rank-v1                  |
-| **Vector DB**  | ChromaDB                                  |
-| **Backend**    | FastAPI                                   |
-| **Deployment** | Docker, AWS ECS, RDS/pgvector, CloudWatch |
-| **Parser**     | LlamaParse                                |
-| **Language**   | Python 3.11                               |
+
